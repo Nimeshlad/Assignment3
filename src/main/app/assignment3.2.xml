@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <db:mysql-config name="MySQL_Configuration" host="localhost" port="3306" user="root" password="root" database="TEST" doc:name="MySQL Configuration"/>
+    <file:connector name="File" outputPattern="mail.txt" autoDelete="true" streaming="true" validateConnections="true" doc:name="File"/>
+    <smtp:gmail-connector name="Gmail" validateConnections="true" doc:name="Gmail"/>
+    <flow name="assignment3.2Flow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/mail" allowedMethods="POST" doc:name="HTTP"/>
+        <db:insert config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[INSERT
+INTO EMPLOYEE
+VALUES
+(#[message.inboundProperties.'http.query.params'.EMPLOYEE_ID],
+#[message.inboundProperties.'http.query.params'.FIRST_NAME],
+#[message.inboundProperties.'http.query.params'LAST_NAME])]]></db:parameterized-query>
+        </db:insert>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <file:outbound-endpoint path="D:\New folder" outputPattern="mail.txt" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <file:file-to-string-transformer doc:name="File to String"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <set-attachment attachmentName="attachment" value="mail.txt" contentType="text/plain" doc:name="Attachment"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <smtp:outbound-endpoint host="smtp.gmail.com" port="587" user="lad.nimesh1@gmail.com" password="100160116090" connector-ref="Gmail" to="lad.nimesh1@gmail.com" from="lad.nimesh1@gmail.com" subject="Testing" responseTimeout="10000" doc:name="SMTP"/>
+        <logger message="DATA INSERTED" level="INFO" doc:name="Logger"/>
+        <rollback-exception-strategy maxRedeliveryAttempts="2" doc:name="Rollback Exception Strategy">
+            <logger message="Transaction Rollback" level="INFO" doc:name="Logger"/>
+            <set-payload value="Transaction Rollback" doc:name="Set Payload"/>
+            <on-redelivery-attempts-exceeded>
+                <logger message="Transaction Executed" level="INFO" doc:name="Logger"/>
+            </on-redelivery-attempts-exceeded>
+        </rollback-exception-strategy>
+    </flow>
+</mule>
